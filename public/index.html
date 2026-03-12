@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>레트로 채팅</title>
+  <link rel="stylesheet" href="/style.css?v=20260225-7" />
+</head>
+<body>
+  <div class="app">
+    <h1>레트로 채팅</h1>
+
+    <div id="notice" class="notice"></div>
+
+    <div id="homeView" class="panel">
+      <div class="head-inline">
+        <h2>메인 화면</h2>
+        <div class="auth-actions">
+          <button id="goLoginBtn">로그인</button>
+          <button id="logoutBtn" class="hidden">로그아웃</button>
+        </div>
+      </div>
+
+      <p id="welcome" class="hint">로그인 후 채팅에 참여할 수 있습니다.</p>
+
+      <div class="actions">
+        <button id="goCreateRoomBtn" class="hidden">+ 채팅방 생성</button>
+      </div>
+
+      <h3>채팅방 목록</h3>
+      <ul id="roomList" class="list"></ul>
+    </div>
+
+    <div id="loginView" class="panel hidden">
+      <div class="head-inline">
+        <h2>로그인 / 회원가입</h2>
+        <button id="backToHomeFromLoginBtn">◀ 메인으로</button>
+      </div>
+      <div class="row">
+        <label>아이디</label>
+        <input id="username" type="text" maxlength="30" />
+      </div>
+      <div class="row">
+        <label>비밀번호</label>
+        <input id="password" type="password" maxlength="100" />
+      </div>
+      <div class="actions">
+        <button id="signupBtn">회원가입</button>
+        <button id="loginBtn">로그인</button>
+      </div>
+      <p class="hint">아이디는 한글/영문/숫자만 허용됩니다.</p>
+    </div>
+
+    <div id="createRoomView" class="panel hidden">
+      <div class="head-inline">
+        <h2>채팅방 생성</h2>
+        <button id="backToHomeFromCreateBtn">◀ 메인으로</button>
+      </div>
+      <div class="row">
+        <label>방 이름</label>
+        <input id="roomName" type="text" maxlength="40" />
+      </div>
+      <div class="actions">
+        <button id="createRoomBtn">생성</button>
+      </div>
+      <p class="hint">동일한 이름의 방은 생성할 수 없습니다.</p>
+    </div>
+
+    <div id="chatView" class="panel hidden">
+      <div class="head-inline">
+        <h2 id="chatRoomTitle">채팅방</h2>
+        <button id="leaveRoomBtn">◀ 메인으로</button>
+      </div>
+      <p id="transportMode" class="hint"></p>
+
+      <div id="chatMessages" class="messages"></div>
+
+      <div class="row-inline">
+        <input id="chatInput" type="text" maxlength="500" placeholder="메시지를 입력하세요" />
+        <button id="sendBtn">전송</button>
+      </div>
+    </div>
+
+    <div id="bottomBanner" class="bottom-banner hidden">
+      <p class="main-subtitle">Chating- v1.1</p>
+      <p class="main-greet">접속을 환영합니다!</p>
+    </div>
+  </div>
+
+  <script src="/app.js?v=20260225-11"></script>
+</body>
+</html>

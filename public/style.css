@@ -1,0 +1,427 @@
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  color: #1f2937;
+  background: #f3f4f6;
+}
+
+.app {
+  max-width: 900px;
+  margin: 24px auto;
+  padding: 0 12px;
+}
+
+h1, h2, h3 {
+  margin: 0;
+  color: #111827;
+  font-weight: bold;
+}
+
+h1 {
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  text-align: center;
+  font-size: 26px;
+}
+
+.main-subtitle {
+  margin: 0 0 2px;
+  color: #6b7280;
+  font-size: 13px;
+  text-align: center;
+}
+
+.main-greet {
+  margin: 0 0 8px;
+  color: #6b7280;
+  font-size: 13px;
+  text-align: center;
+}
+
+.bottom-banner {
+  position: static;
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  text-align: center;
+}
+
+.panel {
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  margin-bottom: 12px;
+  padding: 14px;
+}
+
+.hidden {
+  display: none;
+}
+
+.head-inline {
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.head-inline h2 {
+  float: left;
+  margin-top: 4px;
+}
+
+.auth-actions,
+.head-inline > button {
+  float: right;
+}
+
+.notice {
+  display: none;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1e3a8a;
+  font-weight: bold;
+}
+
+.hint {
+  margin: 8px 0 0;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.row {
+  margin: 8px 0;
+}
+
+.row label {
+  display: block;
+  margin-bottom: 3px;
+  color: #374151;
+  font-weight: bold;
+}
+
+input,
+select,
+button {
+  font-family: "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", Arial, sans-serif;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+input,
+select {
+  width: 100%;
+  color: #111827;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  padding: 9px 10px;
+}
+
+input:focus,
+select:focus {
+  outline: none;
+  border-color: #2563eb;
+}
+
+button {
+  color: #ffffff;
+  border: 1px solid #1d4ed8;
+  background: #2563eb;
+  padding: 8px 12px;
+  min-width: 84px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #1d4ed8;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.actions {
+  margin-top: 8px;
+  margin-bottom: 10px;
+}
+
+.actions button {
+  margin-right: 6px;
+}
+
+.list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+}
+
+.list li {
+  margin: 0;
+  padding: 10px;
+  border-top: 1px solid #e5e7eb;
+  color: #1f2937;
+  overflow: hidden;
+}
+
+.list li:first-child {
+  border-top: 0;
+}
+
+.list li b {
+  color: #111827;
+}
+
+.list li button {
+  float: right;
+  margin-top: -2px;
+}
+
+.messages {
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  height: 340px;
+  overflow-y: auto;
+  padding: 8px 10px;
+  margin: 8px 0;
+}
+
+.msg {
+  padding: 7px 2px;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 16px;
+  word-break: break-word;
+}
+
+.msg:last-child {
+  border-bottom: 0;
+}
+
+.msg-user {
+  color: #2563eb;
+  font-weight: bold;
+}
+
+.msg-time {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.msg-text {
+  color: #111827;
+}
+
+#transportMode {
+  margin: 6px 0 8px;
+}
+
+.transport-box {
+  display: inline-block;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  padding: 5px 8px;
+  color: #1f2937;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.transport-polling {
+  background: #fef9c3;
+  color: #854d0e;
+  border-color: #facc15;
+}
+
+.transport-realtime {
+  background: #dcfce7;
+  color: #166534;
+  border-color: #86efac;
+}
+
+.transport-disconnected {
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: #fca5a5;
+}
+
+.transport-user {
+  display: inline-block;
+  margin-left: 6px;
+  color: #1d4ed8;
+  font-weight: bold;
+}
+
+.row-inline {
+  overflow: hidden;
+}
+
+.row-inline input {
+  float: left;
+  width: 80%;
+}
+
+.row-inline button {
+  float: right;
+  width: 18%;
+  min-width: 70px;
+}
+
+@media (max-width: 760px) {
+  .app {
+    margin: 12px auto;
+    padding: 0 8px;
+  }
+
+  h1 {
+    font-size: 22px;
+  }
+
+  .msg {
+    font-size: 15px;
+  }
+
+  .msg-time {
+    font-size: 12px;
+  }
+
+  .row-inline input {
+    width: 74%;
+  }
+
+  .row-inline button {
+    width: 24%;
+  }
+}
+
+.room-id {
+  color: #1d4ed8;
+  font-weight: bold;
+}
+
+.room-last {
+  color: #6b7280;
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    color: #e5e5e5;
+    background: #171717;
+  }
+
+  h1, h2, h3 {
+    color: #f3f4f6;
+  }
+
+  h1 {
+    border-color: #3f3f46;
+    background: #27272a;
+  }
+
+  .bottom-banner,
+  .panel {
+    border-color: #3f3f46;
+    background: #27272a;
+  }
+
+  .notice {
+    border-color: #57534e;
+    background: #292524;
+    color: #e7e5e4;
+  }
+
+  .hint,
+  .main-subtitle,
+  .main-greet,
+  .msg-time,
+  .room-last {
+    color: #a1a1aa;
+  }
+
+  .row label,
+  .list li,
+  .msg-text,
+  .list li b {
+    color: #e5e7eb;
+  }
+
+  input,
+  select {
+    color: #f4f4f5;
+    background: #18181b;
+    border-color: #52525b;
+  }
+
+  input:focus,
+  select:focus {
+    border-color: #a1a1aa;
+  }
+
+  button {
+    border-color: #1d4ed8;
+    background: #2563eb;
+    color: #ffffff;
+  }
+
+  button:hover {
+    background: #1d4ed8;
+  }
+
+  .list {
+    border-color: #3f3f46;
+    background: #27272a;
+  }
+
+  .list li {
+    border-top-color: #3f3f46;
+  }
+
+  .messages {
+    border-color: #3f3f46;
+    background: #18181b;
+  }
+
+  .msg {
+    border-bottom-color: #3f3f46;
+  }
+
+  .msg-user,
+  .room-id,
+  .transport-user {
+    color: #93c5fd;
+  }
+
+  .transport-box {
+    border-color: #52525b;
+    background: #27272a;
+    color: #e5e5e5;
+  }
+
+  .transport-polling {
+    background: #422006;
+    color: #fde68a;
+    border-color: #a16207;
+  }
+
+  .transport-realtime {
+    background: #052e16;
+    color: #86efac;
+    border-color: #166534;
+  }
+
+  .transport-disconnected {
+    background: #450a0a;
+    color: #fecaca;
+    border-color: #991b1b;
+  }
+}
