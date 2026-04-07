@@ -5,7 +5,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>레트로 채팅</title>
-  <link rel="stylesheet" href="/style.css?v=20260225-7" />
+  <link rel="stylesheet" href="/style.css?v=20260407-2" />
 </head>
 <body>
   <div class="app">
@@ -80,14 +80,23 @@
         <input id="chatInput" type="text" maxlength="500" placeholder="메시지를 입력하세요" />
         <button id="sendBtn">전송</button>
       </div>
+
+      <div class="upload-wrap">
+        <button id="toggleUploadPanelBtn" type="button" class="upload-toggle-btn">사진 업로드 펼치기</button>
+        <form id="uploadForm" class="row-inline upload-row hidden" method="post" enctype="multipart/form-data" target="legacyUploadFrame">
+          <input id="imageFile" name="photo" type="file" accept="image/*" />
+          <button id="uploadImageBtn" type="button" class="upload-gray-btn">사진 업로드</button>
+        </form>
+      </div>
+      <iframe id="legacyUploadFrame" name="legacyUploadFrame" class="hidden"></iframe>
     </div>
 
     <div id="bottomBanner" class="bottom-banner hidden">
-      <p class="main-subtitle">Chating- v1.1</p>
+      <p class="main-subtitle">Chating- v1.2</p>
       <p class="main-greet">접속을 환영합니다!</p>
     </div>
   </div>
 
-  <script src="/app.js?v=20260225-11"></script>
+  <script src="/app.js?v=20260407-4"></script>
 </body>
 </html>

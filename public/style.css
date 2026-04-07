@@ -158,6 +158,51 @@ button:disabled {
   margin-right: 6px;
 }
 
+.row-inline {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.row-inline.hidden {
+  display: none;
+}
+
+.row-inline input[type="text"] {
+  flex: 1;
+}
+
+.upload-row {
+  margin-top: 8px;
+}
+
+.upload-row input[type="file"] {
+  flex: 1;
+}
+
+.upload-wrap {
+  margin-top: 8px;
+}
+
+.upload-toggle-btn {
+  background: #64748b;
+  border-color: #475569;
+}
+
+.upload-toggle-btn:hover {
+  background: #475569;
+}
+
+.upload-gray-btn {
+  background: #6b7280;
+  border-color: #4b5563;
+}
+
+.upload-gray-btn:hover {
+  background: #4b5563;
+}
+
 .list {
   list-style: none;
   margin: 8px 0 0;
@@ -219,6 +264,21 @@ button:disabled {
 
 .msg-text {
   color: #111827;
+}
+
+.msg-image-wrap {
+  display: inline-block;
+}
+
+.msg-image {
+  display: block;
+  margin-top: 6px;
+  max-width: 260px;
+  width: auto;
+  height: auto;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  padding: 3px;
 }
 
 #transportMode {

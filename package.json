@@ -1,6 +1,6 @@
 {
   "name": "chat-minus",
-  "version": "1.0.0",
+  "version": "1.2",
   "description": "Chat Minus - legacy polling + modern websocket chat",
   "main": "server.js",
   "scripts": {

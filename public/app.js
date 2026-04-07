@@ -5,10 +5,12 @@
     roomsById: {},
     roomId: null,
     roomName: '',
+    pendingRoomId: null,
     lastMessageId: 0,
     transport: '',
     ws: null,
-    pollTimer: null
+    pollTimer: null,
+    autoJoinTried: false
   };
 
   var el = {
@@ -36,13 +38,67 @@
     chatMessages: document.getElementById('chatMessages'),
     chatInput: document.getElementById('chatInput'),
     sendBtn: document.getElementById('sendBtn'),
-    leaveRoomBtn: document.getElementById('leaveRoomBtn')
+    leaveRoomBtn: document.getElementById('leaveRoomBtn'),
+    toggleUploadPanelBtn: document.getElementById('toggleUploadPanelBtn'),
+    uploadForm: document.getElementById('uploadForm'),
+    imageFile: document.getElementById('imageFile'),
+    uploadImageBtn: document.getElementById('uploadImageBtn')
   };
 
   function setNotice(msg) {
     var text = msg || '';
     el.notice.innerHTML = text;
     el.notice.style.display = text ? 'block' : 'none';
+  }
+
+  function getRouteStateFromPath() {
+    var p = String((window.location && window.location.pathname) || '');
+    var roomMatch = p.match(/^\/room\/(\d+)\/?$/);
+    if (roomMatch) {
+      return { view: 'room', roomId: Number(roomMatch[1]) || null };
+    }
+    var loginMatch = p.match(/^\/login(?:\/(\d+))?\/?$/);
+    if (loginMatch) {
+      return { view: 'login', roomId: loginMatch[1] ? (Number(loginMatch[1]) || null) : null };
+    }
+    return { view: 'home', roomId: null };
+  }
+
+  function updateRoomPath(roomId) {
+    if (!window.history || !window.history.replaceState) return;
+    var target = roomId ? '/room/' + roomId : '/';
+    try {
+      if (window.location.pathname !== target) {
+        window.history.replaceState(null, '', target);
+      }
+    } catch (e) {}
+  }
+
+  function updateLoginPath(roomId) {
+    if (!window.history || !window.history.replaceState) return;
+    var target = roomId ? '/login/' + roomId : '/login';
+    try {
+      if (window.location.pathname !== target) {
+        window.history.replaceState(null, '', target);
+      }
+    } catch (e) {}
+  }
+
+  function tryAutoJoinFromPath() {
+    if (state.autoJoinTried) return;
+    if (!state.pendingRoomId) return;
+    if (!state.me) return;
+    var room = state.roomsById[String(state.pendingRoomId)];
+    if (!room) return;
+
+    state.autoJoinTried = true;
+    xhr('POST', '/api/rooms/' + state.pendingRoomId + '/join', {}, function (err) {
+      if (err) {
+        setNotice(err);
+        return;
+      }
+      enterRoom(state.pendingRoomId, room.name);
+    });
   }
 
   function show(viewName) {
@@ -127,6 +183,27 @@
     req.send(null);
   }
 
+  function xhrFormData(method, url, formData, cb) {
+    var req = window.XMLHttpRequest ? new XMLHttpRequest() : new ActiveXObject('Microsoft.XMLHTTP');
+    req.open(method, url, true);
+    if (state.sessionToken) req.setRequestHeader('X-Session-Token', state.sessionToken);
+    req.onreadystatechange = function () {
+      if (req.readyState !== 4) return;
+      var parsed = {};
+      if (req.responseText) {
+        try {
+          if (window.JSON && window.JSON.parse) parsed = window.JSON.parse(req.responseText);
+          else parsed = (new Function('return (' + req.responseText + ');'))();
+        } catch (e) {
+          parsed = { error: '응답 형식 오류' };
+        }
+      }
+      if (req.status >= 200 && req.status < 300) cb(null, parsed);
+      else cb(parsed && parsed.error ? parsed.error : '요청 실패', parsed);
+    };
+    req.send(formData);
+  }
+
   function escapeHtml(str) {
     return String(str)
       .replace(/&/g, '&amp;')
@@ -208,6 +285,7 @@
           '</li>';
       }
       el.roomList.innerHTML = html || '<li>생성된 방이 없습니다.</li>';
+      tryAutoJoinFromPath();
     }
 
     xhr('GET', '/api/public-rooms', null, function (err, body) {
@@ -346,21 +424,77 @@
   function renderMessage(m) {
     var div = document.createElement('div');
     div.className = 'msg';
-    div.innerHTML =
-      '<span class="msg-user">&lt;' + escapeHtml(m.username) + '&gt;</span> ' +
-      '<span class="msg-time">[' + escapeHtml(formatChatTime(m.created_at, m.time_text)) + ']</span> ' +
-      '<span class="msg-text">' + escapeHtml(m.content) + '</span>';
+    var isImage = m && m.message_type === 'image' && m.image_url;
+    var html = '<span class="msg-user">&lt;' + escapeHtml(m.username) + '&gt;</span> ' +
+      '<span class="msg-time">[' + escapeHtml(formatChatTime(m.created_at, m.time_text)) + ']</span> ';
+    if (isImage) {
+      html += '<span class="msg-text msg-image-wrap"><img class="msg-image" src="' + escapeHtml(m.image_url) + '" alt="업로드 이미지" /></span>';
+    } else {
+      html += '<span class="msg-text">' + escapeHtml(m.content) + '</span>';
+    }
+    div.innerHTML = html;
     el.chatMessages.appendChild(div);
     el.chatMessages.scrollTop = el.chatMessages.scrollHeight;
     if (m.id > state.lastMessageId) state.lastMessageId = m.id;
   }
 
+  function supportsModernUpload() {
+    if (!window.FormData || !window.XMLHttpRequest) return false;
+    try {
+      var req = new XMLHttpRequest();
+      return !!req && typeof req.upload !== 'undefined';
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function parseLegacyPayload(raw) {
+    if (!raw) return {};
+    if (typeof raw === 'object') return raw;
+    if (window.JSON && window.JSON.parse) {
+      try { return window.JSON.parse(String(raw)); } catch (e1) {}
+    }
+    try {
+      return (new Function('return (' + String(raw) + ');'))();
+    } catch (e2) {
+      return { error: '응답 형식 오류' };
+    }
+  }
+
+  window.__onLegacyUpload = function (raw) {
+    var body = parseLegacyPayload(raw);
+    if (!body || body.error) {
+      setNotice((body && body.error) || '사진 업로드에 실패했습니다.');
+      return;
+    }
+    if (body.message && state.transport !== 'websocket') {
+      renderMessage(body.message);
+    }
+    setNotice('');
+    if (el.imageFile) el.imageFile.value = '';
+    setUploadPanelOpen(false);
+  };
+
+  function setUploadPanelOpen(opened) {
+    if (!el.uploadForm || !el.toggleUploadPanelBtn) return;
+    if (opened) {
+      el.uploadForm.className = 'row-inline upload-row';
+      el.toggleUploadPanelBtn.className = 'upload-toggle-btn hidden';
+    } else {
+      el.uploadForm.className = 'row-inline upload-row hidden';
+      el.toggleUploadPanelBtn.className = 'upload-toggle-btn';
+      el.toggleUploadPanelBtn.innerHTML = '사진 업로드 펼치기';
+    }
+  }
+
   function enterRoom(roomId, roomName) {
     state.roomId = roomId;
     state.roomName = roomName;
+    state.pendingRoomId = roomId;
     state.lastMessageId = 0;
     el.chatMessages.innerHTML = '';
     el.chatRoomTitle.innerHTML = escapeHtml(roomName) + ' <span class="room-id">(#' + roomId + ')</span>';
+    updateRoomPath(roomId);
     show('chat');
     startWebSocketMode();
   }
@@ -369,6 +503,9 @@
     setNotice('');
     if (!state.me) {
       setNotice('로그인이 필요합니다.');
+      state.pendingRoomId = roomId;
+      state.autoJoinTried = false;
+      updateLoginPath(roomId);
       show('login');
       return;
     }
@@ -389,11 +526,13 @@
 
   el.goLoginBtn.onclick = function () {
     setNotice('');
+    updateLoginPath(null);
     show('login');
   };
 
   el.backToHomeFromLoginBtn.onclick = function () {
     setNotice('');
+    updateRoomPath(null);
     show('home');
   };
 
@@ -409,6 +548,7 @@
 
   el.backToHomeFromCreateBtn.onclick = function () {
     setNotice('');
+    updateRoomPath(null);
     show('home');
   };
 
@@ -439,7 +579,10 @@
       if (body && body.token) state.sessionToken = body.token;
       loadMe(function () {
         loadRooms();
-        show('home');
+        if (!state.pendingRoomId) {
+          updateRoomPath(null);
+          show('home');
+        }
       });
     });
   };
@@ -450,8 +593,11 @@
       stopRealtime();
       state.me = null;
       state.sessionToken = '';
+      state.pendingRoomId = null;
+      state.autoJoinTried = false;
       updateAuthUi();
       loadRooms();
+      updateRoomPath(null);
       show('home');
     });
   };
@@ -491,6 +637,55 @@
     });
   };
 
+  if (el.uploadImageBtn) {
+    el.uploadImageBtn.onclick = function () {
+      setNotice('');
+      if (!state.roomId) {
+        setNotice('먼저 채팅방에 입장하세요.');
+        return;
+      }
+      if (!el.imageFile || !el.imageFile.value) {
+        setNotice('업로드할 사진을 선택하세요.');
+        return;
+      }
+
+      if (supportsModernUpload()) {
+        var file = el.imageFile.files && el.imageFile.files[0];
+        if (!file) {
+          setNotice('업로드할 사진을 선택하세요.');
+          return;
+        }
+        var fd = new FormData();
+        fd.append('photo', file, file.name || 'upload');
+        xhrFormData('POST', '/api/rooms/' + state.roomId + '/images', fd, function (err, body) {
+          if (err) {
+            setNotice(err);
+            return;
+          }
+          if (body && body.message && state.transport !== 'websocket') {
+            renderMessage(body.message);
+          }
+          el.imageFile.value = '';
+          setUploadPanelOpen(false);
+        });
+        return;
+      }
+
+      if (!el.uploadForm) {
+        setNotice('현재 브라우저에서 업로드를 지원하지 않습니다.');
+        return;
+      }
+      el.uploadForm.action = '/api/rooms/' + state.roomId + '/images?legacy=1';
+      el.uploadForm.submit();
+    };
+  }
+
+  if (el.toggleUploadPanelBtn) {
+    el.toggleUploadPanelBtn.onclick = function () {
+      setUploadPanelOpen(true);
+    };
+  }
+
   el.chatInput.onkeydown = function (event) {
     var e = event || window.event;
     var keyCode = e.keyCode || e.which;
@@ -506,12 +701,21 @@
     stopRealtime();
     state.roomId = null;
     state.roomName = '';
+    state.pendingRoomId = null;
+    state.autoJoinTried = false;
     state.lastMessageId = 0;
+    setUploadPanelOpen(false);
+    if (el.imageFile) el.imageFile.value = '';
+    updateRoomPath(null);
     show('home');
     loadRooms();
   };
 
-  show('home');
+  var initialRoute = getRouteStateFromPath();
+  state.pendingRoomId = initialRoute.roomId;
+  setUploadPanelOpen(false);
+  if (initialRoute.view === 'login') show('login');
+  else show('home');
   loadRooms();
   loadMe();
 })();

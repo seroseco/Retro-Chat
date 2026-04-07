@@ -12,6 +12,7 @@ var wss = new WebSocket.Server({ server: server });
 
 var dbPath = path.join(__dirname, 'database.db');
 var db = new sqlite3.Database(dbPath);
+var uploadDir = path.join(__dirname, 'public', 'uploads');
 
 function run(sql, params) {
   return new Promise(function (resolve, reject) {
@@ -115,6 +116,17 @@ function initDb() {
           'FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE' +
         ')'
       );
+    })
+    .then(function () {
+      return run("ALTER TABLE messages ADD COLUMN message_type TEXT NOT NULL DEFAULT 'text'")
+        .catch(function () { return null; });
+    })
+    .then(function () {
+      return run('ALTER TABLE messages ADD COLUMN image_url TEXT')
+        .catch(function () { return null; });
+    })
+    .then(function () {
+      fs.mkdirSync(uploadDir, { recursive: true });
     });
 }
 
@@ -234,6 +246,123 @@ function sanitizeMessage(text) {
   return trimmed;
 }
 
+function readRequestBody(req, maxBytes) {
+  return new Promise(function (resolve, reject) {
+    var chunks = [];
+    var total = 0;
+    req.on('data', function (chunk) {
+      total += chunk.length;
+      if (total > maxBytes) {
+        reject(new Error('FILE_TOO_LARGE'));
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('error', reject);
+    req.on('end', function () {
+      resolve(Buffer.concat(chunks));
+    });
+  });
+}
+
+function parseMultipartPhoto(req, maxBytes) {
+  return new Promise(function (resolve, reject) {
+    var ct = String(req.headers['content-type'] || '');
+    var m = ct.match(/boundary=(?:"([^"]+)"|([^;]+))/i);
+    if (!m) {
+      reject(new Error('BAD_MULTIPART'));
+      return;
+    }
+
+    var boundary = '--' + (m[1] || m[2] || '').trim();
+    if (!boundary || boundary === '--') {
+      reject(new Error('BAD_MULTIPART'));
+      return;
+    }
+
+    readRequestBody(req, maxBytes)
+      .then(function (buf) {
+        var raw = buf.toString('binary');
+        var parts = raw.split(boundary);
+        var i;
+        for (i = 0; i < parts.length; i += 1) {
+          var part = parts[i];
+          if (!part || part === '--' || part === '--\r\n' || part === '\r\n') continue;
+          if (part.slice(0, 2) === '\r\n') part = part.slice(2);
+          if (part.slice(-2) === '\r\n') part = part.slice(0, -2);
+          if (part.slice(-2) === '--') part = part.slice(0, -2);
+
+          var splitAt = part.indexOf('\r\n\r\n');
+          if (splitAt < 0) continue;
+
+          var headerStr = part.slice(0, splitAt);
+          var bodyBin = part.slice(splitAt + 4);
+          var dispo = headerStr.match(/Content-Disposition:[^\r\n]*/i);
+          if (!dispo) continue;
+
+          var nameMatch = dispo[0].match(/name="([^"]+)"/i);
+          var fileMatch = dispo[0].match(/filename="([^"]*)"/i);
+          var fieldName = nameMatch ? nameMatch[1] : '';
+          var filename = fileMatch ? fileMatch[1] : '';
+          if (fieldName !== 'photo' || !filename) continue;
+
+          var typeMatch = headerStr.match(/Content-Type:\s*([^\r\n;]+)/i);
+          var contentType = typeMatch ? String(typeMatch[1]).toLowerCase() : '';
+          resolve({
+            filename: filename,
+            contentType: contentType,
+            data: Buffer.from(bodyBin, 'binary')
+          });
+          return;
+        }
+        reject(new Error('NO_FILE'));
+      })
+      .catch(reject);
+  });
+}
+
+function detectImageInfo(data, hintedType) {
+  if (!data || data.length < 8) return null;
+  var type = '';
+  var ext = '';
+
+  if (data[0] === 0x89 && data[1] === 0x50 && data[2] === 0x4e && data[3] === 0x47) {
+    type = 'image/png';
+    ext = 'png';
+  } else if (data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff) {
+    type = 'image/jpeg';
+    ext = 'jpg';
+  } else if (data[0] === 0x47 && data[1] === 0x49 && data[2] === 0x46 && data[3] === 0x38) {
+    type = 'image/gif';
+    ext = 'gif';
+  } else if (
+    data[0] === 0x52 && data[1] === 0x49 && data[2] === 0x46 && data[3] === 0x46 &&
+    data[8] === 0x57 && data[9] === 0x45 && data[10] === 0x42 && data[11] === 0x50
+  ) {
+    type = 'image/webp';
+    ext = 'webp';
+  } else if (data[0] === 0x42 && data[1] === 0x4d) {
+    type = 'image/bmp';
+    ext = 'bmp';
+  }
+
+  if (!type) return null;
+  if (hintedType && hintedType.indexOf('image/') !== 0) return null;
+  return { contentType: type, ext: ext };
+}
+
+function sendUploadResponse(req, res, statusCode, payload) {
+  var legacy = String(req.query.legacy || '') === '1';
+  if (!legacy) {
+    res.status(statusCode).json(payload);
+    return;
+  }
+  var safe = JSON.stringify(payload).replace(/</g, '\\u003c');
+  res.status(statusCode);
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send('<!doctype html><html><body><script>if(window.parent&&window.parent.__onLegacyUpload){window.parent.__onLegacyUpload(' + safe + ');}</script></body></html>');
+}
+
 async function roomMembershipRequired(req, res, next) {
   try {
     var roomId = Number(req.params.roomId);
@@ -305,7 +434,7 @@ function formatTimeText(isoString) {
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-app.get('/', async function (req, res, next) {
+async function renderIndexWithRooms(req, res, next) {
   try {
     var indexPath = path.join(__dirname, 'public', 'index.html');
     var tpl = fs.readFileSync(indexPath, 'utf8');
@@ -330,7 +459,12 @@ app.get('/', async function (req, res, next) {
   } catch (err) {
     next();
   }
-});
+}
+
+app.get('/', renderIndexWithRooms);
+app.get('/login', renderIndexWithRooms);
+app.get('/login/:roomId', renderIndexWithRooms);
+app.get('/room/:roomId', renderIndexWithRooms);
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -552,7 +686,7 @@ app.get('/api/rooms/:roomId/messages', requireAuth, roomMembershipRequired, asyn
     if (!sinceId || sinceId < 0) sinceId = 0;
 
     var messages = await all(
-      'SELECT messages.id, messages.content, messages.created_at, users.username FROM messages JOIN users ON users.id = messages.user_id WHERE messages.room_id = ? AND messages.id > ? ORDER BY messages.id ASC',
+      'SELECT messages.id, messages.content, messages.message_type, messages.image_url, messages.created_at, users.username FROM messages JOIN users ON users.id = messages.user_id WHERE messages.room_id = ? AND messages.id > ? ORDER BY messages.id ASC',
       [req.roomId, sinceId]
     );
     var i;
@@ -580,7 +714,7 @@ app.post('/api/rooms/:roomId/messages', requireAuth, roomMembershipRequired, asy
     );
 
     var message = await get(
-      'SELECT messages.id, messages.content, messages.created_at, users.username FROM messages JOIN users ON users.id = messages.user_id WHERE messages.id = ?',
+      'SELECT messages.id, messages.content, messages.message_type, messages.image_url, messages.created_at, users.username FROM messages JOIN users ON users.id = messages.user_id WHERE messages.id = ?',
       [inserted.lastID]
     );
     message.created_at_text = formatDateTimeText(message.created_at);
@@ -591,6 +725,47 @@ app.post('/api/rooms/:roomId/messages', requireAuth, roomMembershipRequired, asy
     res.json({ ok: true, message: message });
   } catch (err) {
     res.status(500).json({ error: '메시지 전송 중 오류가 발생했습니다.' });
+  }
+});
+
+app.post('/api/rooms/:roomId/images', requireAuth, roomMembershipRequired, async function (req, res) {
+  try {
+    var parsed = await parseMultipartPhoto(req, 5 * 1024 * 1024);
+    var info = detectImageInfo(parsed.data, parsed.contentType);
+    if (!info) {
+      sendUploadResponse(req, res, 400, { error: 'PNG/JPG/GIF/WEBP/BMP 이미지 파일만 업로드할 수 있습니다.' });
+      return;
+    }
+
+    var fileName = nowIso().replace(/[^0-9]/g, '') + '-' + randomToken().slice(0, 12) + '.' + info.ext;
+    var diskPath = path.join(uploadDir, fileName);
+    fs.writeFileSync(diskPath, parsed.data);
+    var imageUrl = '/uploads/' + fileName;
+
+    var inserted = await run(
+      'INSERT INTO messages (room_id, user_id, content, message_type, image_url, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+      [req.roomId, req.user.id, '', 'image', imageUrl, nowIso()]
+    );
+
+    var message = await get(
+      'SELECT messages.id, messages.content, messages.message_type, messages.image_url, messages.created_at, users.username FROM messages JOIN users ON users.id = messages.user_id WHERE messages.id = ?',
+      [inserted.lastID]
+    );
+    message.created_at_text = formatDateTimeText(message.created_at);
+    message.time_text = formatTimeText(message.created_at);
+
+    broadcastRoom(req.roomId, { type: 'message', message: message });
+    sendUploadResponse(req, res, 200, { ok: true, message: message });
+  } catch (err) {
+    if (String(err.message || '') === 'FILE_TOO_LARGE') {
+      sendUploadResponse(req, res, 400, { error: '이미지 크기는 5MB 이하만 가능합니다.' });
+      return;
+    }
+    if (String(err.message || '') === 'NO_FILE' || String(err.message || '') === 'BAD_MULTIPART') {
+      sendUploadResponse(req, res, 400, { error: '업로드할 이미지 파일을 찾을 수 없습니다.' });
+      return;
+    }
+    sendUploadResponse(req, res, 500, { error: '이미지 업로드 중 오류가 발생했습니다.' });
   }
 });
 
@@ -688,7 +863,7 @@ wss.on('connection', async function (ws, req) {
           [ws.roomId, ws.user.id, content, nowIso()]
         );
         var message = await get(
-          'SELECT messages.id, messages.content, messages.created_at, users.username FROM messages JOIN users ON users.id = messages.user_id WHERE messages.id = ?',
+          'SELECT messages.id, messages.content, messages.message_type, messages.image_url, messages.created_at, users.username FROM messages JOIN users ON users.id = messages.user_id WHERE messages.id = ?',
           [inserted.lastID]
         );
         message.created_at_text = formatDateTimeText(message.created_at);
